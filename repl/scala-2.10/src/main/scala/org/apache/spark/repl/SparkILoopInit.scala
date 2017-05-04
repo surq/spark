@@ -10,8 +10,6 @@ package org.apache.spark.repl
 import scala.tools.nsc._
 import scala.tools.nsc.interpreter._
 
-import scala.reflect.internal.util.Position
-import scala.util.control.Exception.ignoring
 import scala.tools.nsc.util.stackTraceString
 
 import org.apache.spark.SPARK_VERSION
@@ -19,7 +17,7 @@ import org.apache.spark.SPARK_VERSION
 /**
  *  Machinery for the asynchronous initialization of the repl.
  */
-trait SparkILoopInit {
+private[repl] trait SparkILoopInit {
   self: SparkILoop =>
 
   /** Print a welcome message */
@@ -80,11 +78,13 @@ trait SparkILoopInit {
     if (!initIsComplete)
       withLock { while (!initIsComplete) initLoopCondition.await() }
     if (initError != null) {
+      // scalastyle:off println
       println("""
         |Failed to initialize the REPL due to an unexpected error.
         |This is a bug, please, report it along with the error diagnostics printed below.
         |%s.""".stripMargin.format(initError)
       )
+      // scalastyle:on println
       false
     } else true
   }
@@ -121,13 +121,31 @@ trait SparkILoopInit {
   def initializeSpark() {
     intp.beQuietDuring {
       command("""
-         @transient val sc = {
-           val _sc = org.apache.spark.repl.Main.interp.createSparkContext()
-           println("Spark context available as sc.")
-           _sc
-         }
+        @transient val spark = org.apache.spark.repl.Main.interp.createSparkSession()
+        @transient val sc = {
+          val _sc = spark.sparkContext
+          if (_sc.getConf.getBoolean("spark.ui.reverseProxy", false)) {
+            val proxyUrl = _sc.getConf.get("spark.ui.reverseProxyUrl", null)
+            if (proxyUrl != null) {
+              println(s"Spark Context Web UI is available at ${proxyUrl}/proxy/${_sc.applicationId}")
+            } else {
+              println(s"Spark Context Web UI is available at Spark Master Public URL")
+            }
+          } else {
+            _sc.uiWebUrl.foreach {
+              webUrl => println(s"Spark context Web UI available at ${webUrl}")
+            }
+          }
+          println("Spark context available as 'sc' " +
+            s"(master = ${_sc.master}, app id = ${_sc.applicationId}).")
+          println("Spark session available as 'spark'.")
+          _sc
+        }
         """)
       command("import org.apache.spark.SparkContext._")
+      command("import spark.implicits._")
+      command("import spark.sql")
+      command("import org.apache.spark.sql.functions._")
     }
   }
 

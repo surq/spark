@@ -12,7 +12,7 @@ import scala.tools.nsc.interpreter._
 
 import scala.collection.{ mutable, immutable }
 
-trait SparkImports {
+private[repl] trait SparkImports {
   self: SparkIMain =>
 
   import global._
@@ -118,8 +118,9 @@ trait SparkImports {
     case class ReqAndHandler(req: Request, handler: MemberHandler) { }
 
     def reqsToUse: List[ReqAndHandler] = {
-      /** Loop through a list of MemberHandlers and select which ones to keep.
-        * 'wanted' is the set of names that need to be imported.
+      /**
+       * Loop through a list of MemberHandlers and select which ones to keep.
+       * 'wanted' is the set of names that need to be imported.
        */
       def select(reqs: List[ReqAndHandler], wanted: Set[Name]): List[ReqAndHandler] = {
         // Single symbol imports might be implicits! See bug #1752.  Rather than

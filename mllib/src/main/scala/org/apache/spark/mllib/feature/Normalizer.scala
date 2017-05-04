@@ -17,11 +17,10 @@
 
 package org.apache.spark.mllib.feature
 
-import org.apache.spark.annotation.Experimental
+import org.apache.spark.annotation.Since
 import org.apache.spark.mllib.linalg.{DenseVector, SparseVector, Vector, Vectors}
 
 /**
- * :: Experimental ::
  * Normalizes samples individually to unit L^p^ norm
  *
  * For any 1 &lt;= p &lt; Double.PositiveInfinity, normalizes samples using
@@ -31,9 +30,10 @@ import org.apache.spark.mllib.linalg.{DenseVector, SparseVector, Vector, Vectors
  *
  * @param p Normalization in L^p^ space, p = 2 by default.
  */
-@Experimental
-class Normalizer(p: Double) extends VectorTransformer {
+@Since("1.1.0")
+class Normalizer @Since("1.1.0") (p: Double) extends VectorTransformer {
 
+  @Since("1.1.0")
   def this() = this(2)
 
   require(p >= 1.0)
@@ -44,6 +44,7 @@ class Normalizer(p: Double) extends VectorTransformer {
    * @param vector vector to be normalized.
    * @return normalized vector. If the norm of the input is zero, it will return the input vector.
    */
+  @Since("1.1.0")
   override def transform(vector: Vector): Vector = {
     val norm = Vectors.norm(vector, p)
 
@@ -52,24 +53,24 @@ class Normalizer(p: Double) extends VectorTransformer {
       // However, for sparse vector, the `index` array will not be changed,
       // so we can re-use it to save memory.
       vector match {
-        case dv: DenseVector =>
-          val values = dv.values.clone()
-          val size = values.size
+        case DenseVector(vs) =>
+          val values = vs.clone()
+          val size = values.length
           var i = 0
           while (i < size) {
             values(i) /= norm
             i += 1
           }
           Vectors.dense(values)
-        case sv: SparseVector =>
-          val values = sv.values.clone()
-          val nnz = values.size
+        case SparseVector(size, ids, vs) =>
+          val values = vs.clone()
+          val nnz = values.length
           var i = 0
           while (i < nnz) {
             values(i) /= norm
             i += 1
           }
-          Vectors.sparse(sv.size, sv.indices, values)
+          Vectors.sparse(size, ids, values)
         case v => throw new IllegalArgumentException("Do not support vector type " + v.getClass)
       }
     } else {
